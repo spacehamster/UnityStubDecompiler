@@ -7,8 +7,8 @@
     <ProjectGuid>{13915D4F-2C35-4486-8695-46CDCB2FBD4D}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Decompile</RootNamespace>
-    <AssemblyName>Decompile</AssemblyName>
+    <RootNamespace>UnityStubDecompiler</RootNamespace>
+    <AssemblyName>UnityStubDecompiler</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
@@ -64,7 +64,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ScriptStubDecompiler.cs" />
+    <Compile Include="StubDecompiler.cs" />
     <Compile Include="FileUtil.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -74,9 +74,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="AppConfigTemplate.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

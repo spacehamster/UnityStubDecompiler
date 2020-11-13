@@ -1,10 +1,10 @@
-﻿namespace Decompile
+﻿namespace UnityStubDecompiler
 {
     class Program
     {
         static void Main(string[] args)
         {
-            ScriptStubDecompiler.DecompileBlueprintProject(args[0]);
+            StubDecompiler.DecompileProject(args[0]);
         }
     }
 }

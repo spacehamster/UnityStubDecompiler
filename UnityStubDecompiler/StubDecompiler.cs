@@ -2,17 +2,14 @@
 using ICSharpCode.Decompiler.CSharp;
 using ICSharpCode.Decompiler.CSharp.Syntax;
 using ICSharpCode.Decompiler.CSharp.Transforms;
-using ICSharpCode.Decompiler.Disassembler;
 using ICSharpCode.Decompiler.Metadata;
 using ICSharpCode.Decompiler.TypeSystem;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection.Metadata;
-using System.Text;
 
-namespace Decompile
+namespace UnityStubDecompiler
 {
     public class AttributeRemover : DepthFirstAstVisitor, IAstTransform
     {
@@ -96,7 +93,7 @@ namespace Decompile
             rootNode.AcceptVisitor(this);
         }
     }
-    class ScriptStubDecompiler
+    class StubDecompiler
     {
         CSharpDecompiler decompiler;
         string projectDir;
@@ -134,9 +131,9 @@ namespace Decompile
             dependentModules = modules;
             result = lookup;
         }
-        public static void DecompileBlueprintProject(string managedDir)
+        public static void DecompileProject(string managedDir)
         {
-            var blueprintDecompiler = new ScriptStubDecompiler();
+            var blueprintDecompiler = new StubDecompiler();
             blueprintDecompiler.Decompile(managedDir);
         }
         void Decompile(string managedDir)
