@@ -91,9 +91,12 @@ namespace UnityStubDecompiler
             }
             return false;
         }
-        bool IsUnityModule(IModule module)
+        bool IsUnityModuleOrCoreLibrary(IModule module)
         {
             if (module.AssemblyName.StartsWith("UnityEngine")) return true;
+            if (module.AssemblyName == "mscorlib") return true;
+            if (module.AssemblyName == "System") return true;
+            if (module.AssemblyName == "System.Core") return true;
             return false;
         }
         IEnumerable<ITypeDefinition> CollectTypes(IType type)
@@ -147,7 +150,7 @@ namespace UnityStubDecompiler
                 seen.Add(type);
                 if (type.Name == "<Module>") continue;
                 if (!IsSerialized(type)) continue;
-                if (IsUnityModule(type.ParentModule)) continue;
+                if (IsUnityModuleOrCoreLibrary(type.ParentModule)) continue;
                 if (!moduleLookup.ContainsKey(type.ParentModule))
                 {
                     var decompiler = CreateDecompiler(type.ParentModule.AssemblyName);
@@ -160,7 +163,7 @@ namespace UnityStubDecompiler
                     foreach (var fieldType in CollectTypes(field.Type))
                     {
 
-                        if (IsUnityModule(fieldType.ParentModule))
+                        if (IsUnityModuleOrCoreLibrary(fieldType.ParentModule))
                         {
                             continue;
                         }
