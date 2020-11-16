@@ -56,6 +56,14 @@ namespace UnityStubDecompiler
                 {
                     continue;
                 }
+                if (fieldType.TypeArguments.Count > 0 && fieldType.FullName == "System.Collections.Generic.List")
+                {
+                    fieldType = fieldType.TypeArguments[0];
+                }
+                if (fieldType.TypeArguments.Count > 0)
+                {
+                    continue;
+                }
                 var typeDefintion = fieldType.GetDefinition();
                 if (!IsSerialized(typeDefintion)) continue;
                 result.Add(field);
@@ -84,8 +92,7 @@ namespace UnityStubDecompiler
                 return true;
             }
             if (type.GetAttributes().Any(a => a.AttributeType.FullName == "System.SerializableAttribute") &&
-                !IsDerivedClass(type) &&
-                type.DeclaringType == null)
+                !IsDerivedClass(type))
             {
                 return true;
             }
@@ -124,6 +131,10 @@ namespace UnityStubDecompiler
                     yield return elementType;
                 }
                 yield break;
+            }
+            foreach(var typeArgument in type.TypeArguments.SelectMany(CollectTypes))
+            {
+                yield return typeArgument;
             }
             if (type.GetDefinition() == null) throw new Exception();
             yield return type.GetDefinition();
