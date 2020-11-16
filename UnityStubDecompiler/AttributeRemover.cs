@@ -1,5 +1,6 @@
 ﻿using ICSharpCode.Decompiler.CSharp.Syntax;
 using ICSharpCode.Decompiler.CSharp.Transforms;
+using ICSharpCode.Decompiler.Semantics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,12 +11,15 @@ namespace UnityStubDecompiler
 {
     public class AttributeRemover : DepthFirstAstVisitor, IAstTransform
     {
-        public override void VisitAttributeSection(AttributeSection attribute)
+        public override void VisitAttributeSection(AttributeSection attributeSelection)
         {
-            //TODO: Why doesn't this detect SerializeField
-            var attributeText = attribute.ToString().Trim();
-            if (attributeText == "[Serializable]" || attributeText == "[SerializeField]") return;
-            attribute.Remove();
+            var attribute = attributeSelection.Attributes.First();
+            var annotation = attribute.Annotation<MemberResolveResult>();
+            if(annotation.Type.FullName == "System.SerializableAttribute" || annotation.Type.FullName == "UnityEngine.SerializeField")
+            {
+                return;
+            }
+            attributeSelection.Remove();
         }
         public void Run(AstNode rootNode, TransformContext context)
         {
