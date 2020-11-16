@@ -10,5 +10,17 @@ namespace UnityStubDecompiler
         {
             return type.DirectBaseTypes.Single(t => t.Kind != TypeKind.Interface);
         }
+
+        public static bool CompareMethodSignature(this IMethod src, IMethod target)
+        {
+            if (src.Name != target.Name) return false;
+            if (src.ReturnType != target.ReturnType) return false;
+            if (src.Parameters.Count != target.Parameters.Count) return false;
+            for(int i = 0; i < src.Parameters.Count; i++)
+            {
+                if (src.Parameters[i].Type.FullName != target.Parameters[i].Type.FullName) return false;
+            }
+            return true;
+        }
     }
 }

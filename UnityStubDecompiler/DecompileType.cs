@@ -9,11 +9,14 @@ namespace UnityStubDecompiler
         public readonly DecompileModule Module;
         public IReadOnlyList<IField> Fields => m_Fields;
         private List<IField> m_Fields;
-        public DecompileType(ITypeDefinition type, DecompileModule module, List<IField> fields)
+        public IReadOnlyList<IMethod> Methods => m_Methods;
+        private List<IMethod> m_Methods;
+        public DecompileType(ITypeDefinition type, DecompileModule module, List<IField> fields, List<IMethod> methods)
         {
             TypeDefinition = type;
             Module = module;
             m_Fields = fields;
+            m_Methods = methods;
         }
         public string GetFilePath()
         {

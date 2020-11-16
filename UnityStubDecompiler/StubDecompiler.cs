@@ -98,9 +98,14 @@ namespace UnityStubDecompiler
             }
             return false;
         }
-        bool IsUnityModuleOrCoreLibrary(IModule module)
+        bool IsUnityModule(IModule module)
         {
             if (module.AssemblyName.StartsWith("UnityEngine")) return true;
+            return false;
+        }
+        bool IsUnityModuleOrCoreLibrary(IModule module)
+        {
+            if (IsUnityModule(module)) return true;
             if (module.AssemblyName == "mscorlib") return true;
             if (module.AssemblyName == "System") return true;
             if (module.AssemblyName == "System.Core") return true;
@@ -139,16 +144,6 @@ namespace UnityStubDecompiler
             if (type.GetDefinition() == null) throw new Exception();
             yield return type.GetDefinition();
         }
-        IEnumerable<ITypeDefinition> CollectBaseTypes(IType type)
-        {
-            foreach (var baseType in type.GetNonInterfaceBaseTypes())
-            {
-                if (baseType == type) continue;
-                var def = baseType.GetDefinition();
-                if (def == null) throw new Exception();
-                yield return def;
-            }
-        }
         CSharpDecompiler CreateDecompiler(string assemblyName)
         {
             var decompiler = new CSharpDecompiler($"{ManagedDir}/{assemblyName}.dll",
@@ -156,6 +151,36 @@ namespace UnityStubDecompiler
             decompiler.AstTransforms.Insert(0, new TypeFixer(this));
             decompiler.AstTransforms.Insert(0, new AttributeRemover());
             return decompiler;
+        }
+        List<IMethod> GetAbstractMethodImplementations(ITypeDefinition type)
+        {
+            var abstractMethods = new List<IMethod>();
+            var baseTypes = type.GetNonInterfaceBaseTypes().ToArray();
+            foreach (var baseType in baseTypes)
+            {
+                var def = baseType.GetDefinition();
+                if (!IsUnityModule(def.ParentModule)) continue;
+                foreach(var method in def.Methods)
+                {
+                    if (method.IsAbstract)
+                    {
+                        abstractMethods.Add(method);
+                    }
+                }
+            }
+            var result = new List<IMethod>();
+            if (abstractMethods.Count == 0) return result;
+            foreach(var method in type.Methods)
+            {
+                foreach(var abstractMethod in abstractMethods)
+                {
+                    if (method.CompareMethodSignature(abstractMethod))
+                    {
+                        result.Add(method);
+                    }
+                }
+            }
+            return result;
         }
         void CollectTypes(out List<DecompileType> types, out List<DecompileModule> modules)
         {
@@ -184,6 +209,7 @@ namespace UnityStubDecompiler
                 {
                     module.AddReference(parent.ParentModule);
                 }
+                var methods = GetAbstractMethodImplementations(type);
                 var fields = GetSerializedFields(type);
                 foreach (var field in fields) 
                 {
@@ -203,7 +229,7 @@ namespace UnityStubDecompiler
                         }
                     }
                 }
-                result.Add(new DecompileType(type, module, fields));
+                result.Add(new DecompileType(type, module, fields, methods));
             }
 
             types = result;

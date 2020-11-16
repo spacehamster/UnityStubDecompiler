@@ -42,11 +42,31 @@ namespace UnityStubDecompiler
                     VisitTypeDeclaration(subclass);
                 }
             }
+            var typeDefinition = typeDeclaration.GetResolveResult().Type.GetDefinition();
+            var type = Decompiler.GetType(typeDefinition);
             foreach (var member in typeDeclaration.Members)
             {
-                if (member is MethodDeclaration)
+                if (member is MethodDeclaration md)
                 {
-                    member.Remove();
+                    var methods = type.Methods;
+                    if (!methods.Any(f => f.Name == md.GetSymbol().Name))
+                    {
+                        member.Remove();
+                    }
+                    else
+                    {
+                        foreach(var child in md.Body.Children)
+                        {
+                            child.Remove();
+                        }
+                        if (md.ReturnType.ToString() != "void")
+                        {
+                            var simpleType = new SimpleType("System.NotImplementedException");
+                            var objCreateExpression = new ObjectCreateExpression(simpleType);
+                            var throwStatement = new ThrowStatement(objCreateExpression);
+                            md.Body.Add(throwStatement);
+                        }
+                    }
                 }
                 else if (member is PropertyDeclaration)
                 {
@@ -78,8 +98,6 @@ namespace UnityStubDecompiler
                 }
                 else if (member is FieldDeclaration fd)
                 {
-                    var def = typeDeclaration.GetResolveResult().Type.GetDefinition();
-                    var type = Decompiler.GetType(def);
                     var fields = type.Fields;
                     if (!fields.Any(f => f.Name == fd.GetSymbol().Name))
                     {
