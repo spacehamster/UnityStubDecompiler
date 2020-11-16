@@ -12,6 +12,9 @@ namespace UnityStubDecompiler
     {
         public override void VisitAttributeSection(AttributeSection attribute)
         {
+            //TODO: Why doesn't this detect SerializeField
+            var attributeText = attribute.ToString().Trim();
+            if (attributeText == "[Serializable]" || attributeText == "[SerializeField]") return;
             attribute.Remove();
         }
         public void Run(AstNode rootNode, TransformContext context)

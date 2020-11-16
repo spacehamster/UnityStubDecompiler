@@ -65,7 +65,7 @@ namespace UnityStubDecompiler
                     var def = typeDeclaration.GetResolveResult().Type.GetDefinition();
                     var type = Decompiler.GetType(def);
                     var fields = type.Fields;
-                    if (!fields.Contains(fd.GetSymbol()))
+                    if (!fields.Any(f => f.Name == fd.GetSymbol().Name))
                     {
                         member.Remove();
                     }

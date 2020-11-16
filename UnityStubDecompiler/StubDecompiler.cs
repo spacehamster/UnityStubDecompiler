@@ -37,12 +37,55 @@ namespace UnityStubDecompiler
         }
 
         List<IField> GetSerializedFields(IType mainType) {
-            return mainType.GetFields().ToList();
+            var result = new List<IField>();
+            foreach(var field in mainType.GetFields())
+            {
+                if(!(field.Accessibility == Accessibility.Public || field.GetAttributes().Any(a => a.AttributeType.FullName == "UnityEngine.SerializeField"))){
+                    continue;
+                }
+                var fieldType = field.Type;
+                if (fieldType is ArrayType arrayType)
+                {
+                    fieldType = arrayType.ElementType;
+                }
+                if (fieldType is UnknownType unknownType)
+                {
+                    continue;
+                }
+                if (fieldType is AbstractTypeParameter abstractTypeParameter)
+                {
+                    continue;
+                }
+                var typeDefintion = fieldType.GetDefinition();
+                if (!IsSerialized(typeDefintion)) continue;
+                result.Add(field);
+            }
+            return result;
+
+        }
+        bool IsDerivedClass(ITypeDefinition type)
+        {
+            foreach(var baseType in type.GetNonInterfaceBaseTypes())
+            {
+                if (baseType == type) continue;
+                if (baseType.FullName != "System.Object" && baseType.FullName != "System.ValueType") return true;
+            }
+            return false;
         }
         bool IsSerialized(ITypeDefinition type)
         {
-            var baseType = type.GetNonInterfaceBaseTypes().Where(t => t != type).ToList();
-            if(baseType.Any(t => (t.Name == "MonoBehaviour" || t.Name == "ScriptableObject" ) && t.Namespace == "UnityEngine"))
+            var baseTypes = type.GetNonInterfaceBaseTypes().Where(t => t != type).ToList();
+            if(baseTypes.Any(t => (t.Name == "MonoBehaviour" || t.Name == "ScriptableObject" ) && t.Namespace == "UnityEngine"))
+            {
+                return true;
+            }
+            if (type.GetAttributes().Any(a => a.AttributeType.FullName == "System.SerializableAttribute") && type.ParentModule.AssemblyName == "mscorlib")
+            {
+                return true;
+            }
+            if (type.GetAttributes().Any(a => a.AttributeType.FullName == "System.SerializableAttribute") &&
+                !IsDerivedClass(type) &&
+                type.DeclaringType == null)
             {
                 return true;
             }
@@ -61,6 +104,14 @@ namespace UnityStubDecompiler
             }
             if (type is AbstractTypeParameter abstractTypeParameter)
             {
+                yield break;
+            }
+            if (type is PointerType pointerType)
+            {
+                foreach (var elementType in CollectTypes(pointerType.ElementType))
+                {
+                    yield return elementType;
+                }
                 yield break;
             }
             if (type is ArrayType arrayType)
@@ -97,10 +148,6 @@ namespace UnityStubDecompiler
                 if (type.Name == "<Module>") continue;
                 if (!IsSerialized(type)) continue;
                 if (IsUnityModule(type.ParentModule)) continue;
-                foreach (var dep in CollectTypes(type))
-                {
-                    //toCheck.Push(dep);
-                }
                 if (!moduleLookup.ContainsKey(type.ParentModule))
                 {
                     var decompiler = CreateDecompiler(type.ParentModule.AssemblyName);
@@ -173,8 +220,16 @@ namespace UnityStubDecompiler
         {
             var path = $"{projectDir}/{type.GetFilePath()}";
             FileUtil.EnsureDirectory(Path.GetDirectoryName(path));
-            var text = type.Module.Decompiler.DecompileTypeAsString(type.TypeDefinition.FullTypeName);
-            File.WriteAllText(path, text);
+            var fullName = type.TypeDefinition.FullTypeName;
+            try
+            {
+                var text = type.Module.Decompiler.DecompileTypeAsString(fullName);
+                File.WriteAllText(path, text);
+            } catch(Exception ex)
+            {
+                File.WriteAllText(path, $"/*\n{ex}\n*/");
+            }
+            
         }
     }
 }
