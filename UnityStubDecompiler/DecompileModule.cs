@@ -17,6 +17,10 @@ namespace UnityStubDecompiler
         }
         public void AddReference(IModule module)
         {
+            if(module.AssemblyName == Module.AssemblyName)
+            {
+                throw new System.Exception("Cannot at project reference to own module");
+            }
             m_References.Add(module);
         }
     }

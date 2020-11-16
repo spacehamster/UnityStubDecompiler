@@ -67,6 +67,7 @@
     <Compile Include="AttributeRemover.cs" />
     <Compile Include="DecompileType.cs" />
     <Compile Include="DecompileModule.cs" />
+    <Compile Include="Extensions.cs" />
     <Compile Include="Options.cs" />
     <Compile Include="SolutionGenerator.cs" />
     <Compile Include="StubDecompiler.cs" />

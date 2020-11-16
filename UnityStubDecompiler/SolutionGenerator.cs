@@ -63,7 +63,7 @@ namespace UnityStubDecompiler
             using var sw = new StreamWriter($"{options.SolutionDirectoryName}/{project}/{project}.csproj");
             sw.WriteLine(@"<Project Sdk=""Microsoft.NET.Sdk"">");
             sw.WriteLine(@"  <PropertyGroup>");
-            sw.WriteLine(@"    <TargetFramework>net35</TargetFramework>");
+            sw.WriteLine(@"    <TargetFramework>net47</TargetFramework>");
             sw.WriteLine(@"  </PropertyGroup>");
 
             sw.WriteLine(@"  <ItemGroup>");
@@ -77,6 +77,9 @@ namespace UnityStubDecompiler
             sw.WriteLine(@"  </ItemGroup>");
 
             sw.WriteLine(@"  <ItemGroup>");
+            sw.WriteLine($"    <Reference Include=\"UnityEngine.dll\">");
+            sw.WriteLine($"      <HintPath>{managedDir}\\UnityEngine.dll</HintPath>");
+            sw.WriteLine($"    </Reference>");
             foreach (var item in module.References)
             {
                 if (!modules.Any(m => m.Module.AssemblyName == item.AssemblyName))

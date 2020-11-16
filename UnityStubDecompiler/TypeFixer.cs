@@ -16,6 +16,10 @@ namespace UnityStubDecompiler
         }
         public override void VisitTypeDeclaration(TypeDeclaration typeDeclaration)
         {
+            foreach (var constraint in typeDeclaration.Constraints)
+            {
+                constraint.Remove();
+            }
             var baseTypes = typeDeclaration.BaseTypes.ToArray();
             foreach (var baseNode in baseTypes)
             {
@@ -44,23 +48,35 @@ namespace UnityStubDecompiler
                 {
                     member.Remove();
                 }
-                if (member is PropertyDeclaration)
+                else if (member is PropertyDeclaration)
                 {
                     member.Remove();
                 }
-                if (member is OperatorDeclaration)
+                else if (member is OperatorDeclaration)
                 {
                     member.Remove();
                 }
-                if (member is IndexerDeclaration)
+                else if (member is IndexerDeclaration)
                 {
                     member.Remove();
                 }
-                if (member is ConstructorDeclaration)
+                else if (member is ConstructorDeclaration)
                 {
                     member.Remove();
                 }
-                if (member is FieldDeclaration fd)
+                else if(member is CustomEventDeclaration)
+                {
+                    member.Remove();
+                }
+                else if (member is DelegateDeclaration)
+                {
+                    member.Remove();
+                }
+                else if(member is TypeDeclaration)
+                {
+
+                }
+                else if (member is FieldDeclaration fd)
                 {
                     var def = typeDeclaration.GetResolveResult().Type.GetDefinition();
                     var type = Decompiler.GetType(def);
@@ -69,6 +85,10 @@ namespace UnityStubDecompiler
                     {
                         member.Remove();
                     }
+                }
+                else
+                {
+
                 }
             }
         }

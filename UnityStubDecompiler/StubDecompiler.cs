@@ -139,6 +139,16 @@ namespace UnityStubDecompiler
             if (type.GetDefinition() == null) throw new Exception();
             yield return type.GetDefinition();
         }
+        IEnumerable<ITypeDefinition> CollectBaseTypes(IType type)
+        {
+            foreach (var baseType in type.GetNonInterfaceBaseTypes())
+            {
+                if (baseType == type) continue;
+                var def = baseType.GetDefinition();
+                if (def == null) throw new Exception();
+                yield return def;
+            }
+        }
         CSharpDecompiler CreateDecompiler(string assemblyName)
         {
             var decompiler = new CSharpDecompiler($"{ManagedDir}/{assemblyName}.dll",
@@ -168,6 +178,12 @@ namespace UnityStubDecompiler
                     moduleLookup[type.ParentModule] = new DecompileModule(type.ParentModule, decompiler);
                 }
                 var module = moduleLookup[type.ParentModule];
+                var parent = type.GetDirectBaseType().GetDefinition();
+                toCheck.Push(parent);
+                if(parent.ParentModule != module.Module)
+                {
+                    module.AddReference(parent.ParentModule);
+                }
                 var fields = GetSerializedFields(type);
                 foreach (var field in fields) 
                 {
@@ -200,6 +216,7 @@ namespace UnityStubDecompiler
         }
         void Decompile()
         {
+            Console.WriteLine("Collecting Types");
             projectDir = options.SolutionDirectoryName;
             decompiler = CreateDecompiler("Assembly-CSharp");
             CollectTypes(out List<DecompileType> types, out List<DecompileModule> modules);
@@ -214,19 +231,27 @@ namespace UnityStubDecompiler
                 m_TypeLookup.Add(type.Id, type);
             }
             var filenameTypeLookup = new Dictionary<string, DecompileType>();
-            var topTypes = types.Where(t => t.TypeDefinition.DeclaringType == null);
-            foreach (var type in topTypes)
+            var topTypes = types
+                .Where(t => t.TypeDefinition.DeclaringType == null)
+                .GroupBy(t => t.Module)
+                .OrderBy(g => g.Key.Module.AssemblyName);
+            foreach (var group in topTypes)
             {
-                var path = $"{projectDir}/{type.GetFilePath()}";
-                if (filenameTypeLookup.ContainsKey(path))
+                Console.WriteLine($"Decompiling {group.Key.Module.AssemblyName}");
+                foreach (var type in group)
                 {
-                    var other = filenameTypeLookup[path];
-                    throw new Exception($"Duplicate file names");
-                } else
-                {
-                    filenameTypeLookup.Add(path, type);
+                    var path = $"{projectDir}/{type.GetFilePath()}";
+                    if (filenameTypeLookup.ContainsKey(path))
+                    {
+                        var other = filenameTypeLookup[path];
+                        throw new Exception($"Duplicate file names");
+                    }
+                    else
+                    {
+                        filenameTypeLookup.Add(path, type);
+                    }
+                    DecompileType(type);
                 }
-                DecompileType(type);
             }
             if (options.GenerateSolution)
             {
