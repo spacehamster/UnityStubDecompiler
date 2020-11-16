@@ -7,13 +7,13 @@ namespace UnityStubDecompiler
 {
     public class SolutionGenerator
     {
-        public static void Generate(Options options, IEnumerable<DecompileModule> modules)
+        public static void Generate(string managedDir, Options options, IEnumerable<DecompileModule> modules)
         {
             var projects = modules.Select(m => m.Module.AssemblyName);
             WriteSolution(options, projects);
-            foreach (var project in projects)
+            foreach (var module in modules)
             {
-                WriteProject(options, project);
+                WriteProject(options, module, modules, managedDir);
             }
         }
         private static void WriteSolution(Options options, IEnumerable<string> projects)
@@ -57,13 +57,37 @@ namespace UnityStubDecompiler
             sw.WriteLine("EndGlobal");
 
         }
-        private static void WriteProject(Options options, string project)
+        private static void WriteProject(Options options, DecompileModule module, IEnumerable<DecompileModule> modules, string managedDir)
         {
+            var project = module.Module.AssemblyName;
             using var sw = new StreamWriter($"{options.SolutionDirectoryName}/{project}/{project}.csproj");
             sw.WriteLine(@"<Project Sdk=""Microsoft.NET.Sdk"">");
             sw.WriteLine(@"  <PropertyGroup>");
             sw.WriteLine(@"    <TargetFramework>net35</TargetFramework>");
             sw.WriteLine(@"  </PropertyGroup>");
+
+            sw.WriteLine(@"  <ItemGroup>");
+            foreach(var item in module.References)
+            {
+                if (modules.Any(m => m.Module.AssemblyName == item.AssemblyName))
+                {
+                    sw.WriteLine($"    <ProjectReference Include=\"..\\{item.AssemblyName}\\{item.AssemblyName}.csproj\" />");
+                }
+            }
+            sw.WriteLine(@"  </ItemGroup>");
+
+            sw.WriteLine(@"  <ItemGroup>");
+            foreach (var item in module.References)
+            {
+                if (!modules.Any(m => m.Module.AssemblyName == item.AssemblyName))
+                {
+                    sw.WriteLine($"    <Reference Include=\"{item.AssemblyName}\">");
+                    sw.WriteLine($"      <HintPath>{managedDir}\\{item.AssemblyName}.dll</HintPath>");
+                    sw.WriteLine($"    </Reference>");
+                }
+            }
+            sw.WriteLine(@"  </ItemGroup>");
+
             sw.WriteLine(@"</Project>");
         }
     }

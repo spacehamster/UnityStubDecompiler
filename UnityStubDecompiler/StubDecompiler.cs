@@ -162,7 +162,10 @@ namespace UnityStubDecompiler
                 {
                     foreach (var fieldType in CollectTypes(field.Type))
                     {
-
+                        if(fieldType.ParentModule != type.ParentModule)
+                        {
+                            module.AddReference(fieldType.ParentModule);
+                        }
                         if (IsUnityModuleOrCoreLibrary(fieldType.ParentModule))
                         {
                             continue;
@@ -216,7 +219,7 @@ namespace UnityStubDecompiler
             }
             if (options.GenerateSolution)
             {
-                SolutionGenerator.Generate(options, modules);
+                SolutionGenerator.Generate(ManagedDir, options, modules);
             }
         }
         public void DecompileType(DecompileType type)
