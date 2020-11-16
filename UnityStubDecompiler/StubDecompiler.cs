@@ -4,6 +4,7 @@ using ICSharpCode.Decompiler.CSharp.Syntax;
 using ICSharpCode.Decompiler.CSharp.Transforms;
 using ICSharpCode.Decompiler.Metadata;
 using ICSharpCode.Decompiler.TypeSystem;
+using ICSharpCode.Decompiler.TypeSystem.Implementation;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -11,100 +12,32 @@ using System.Linq;
 
 namespace UnityStubDecompiler
 {
-    public class AttributeRemover : DepthFirstAstVisitor, IAstTransform
-    {
-        public override void VisitAttributeSection(AttributeSection attribute)
-        {
-            attribute.Remove();
-        }
-        public void Run(AstNode rootNode, TransformContext context)
-        {
-            rootNode.AcceptVisitor(this);
-        }
-    }
-    public class TypeFixer : DepthFirstAstVisitor, IAstTransform
-    {
-        CSharpDecompiler Decompiler;
-        Dictionary<ITypeDefinition, List<IField>> Types;
-        public TypeFixer(CSharpDecompiler decompiler, Dictionary<ITypeDefinition, List<IField>> types)
-        {
-            Decompiler = decompiler;
-            Types = types;
-        }
-        public override void VisitTypeDeclaration(TypeDeclaration typeDeclaration)
-        {
-            var baseTypes = typeDeclaration.BaseTypes.ToArray();
-            foreach (var baseNode in baseTypes)
-            {
-                var resolve = baseNode.GetResolveResult();
-                if (resolve.Type.Kind == TypeKind.Interface)
-                {
-                    baseNode.Remove();
-                }
-            }
-            var members = typeDeclaration.Members.ToArray();
-            foreach(var subclass in typeDeclaration.Children.OfType<TypeDeclaration>())
-            {
-                var resolve = subclass.GetResolveResult();
-                if (!Types.ContainsKey(resolve.Type.GetDefinition()))
-                {
-                    subclass.Remove();
-                }
-                else
-                {
-                    VisitTypeDeclaration(subclass);
-                }
-            }
-            foreach (var member in typeDeclaration.Members)
-            {
-                if(member is MethodDeclaration)
-                {
-                    member.Remove();
-                }
-                if (member is PropertyDeclaration)
-                {
-                    member.Remove();
-                }
-                if (member is OperatorDeclaration)
-                {
-                    member.Remove();
-                }
-                if (member is IndexerDeclaration)
-                {
-                    member.Remove();
-                }
-                if (member is ConstructorDeclaration)
-                {
-                    member.Remove();
-                }
-                if (member is FieldDeclaration fd)
-                {
-                    var fields = Types[typeDeclaration.GetResolveResult().Type.GetDefinition()];
-                    if (!fields.Contains(fd.GetSymbol()))
-                    {
-                        member.Remove();
-                    }
-                }
-            }
-        }
-
-        public void Run(AstNode rootNode, TransformContext context)
-        {
-            rootNode.AcceptVisitor(this);
-        }
-    }
-    class StubDecompiler
+    public class StubDecompiler
     {
         CSharpDecompiler decompiler;
         string projectDir;
+        string ManagedDir;
+        Options options;
+        private Dictionary<string, DecompileType> m_TypeLookup;
+
+        public StubDecompiler(Options options, string managedDir)
+        {
+            this.options = options;
+            this.ManagedDir = managedDir;
+        }
+
+        public DecompileType GetType(ITypeDefinition type)
+        {
+            return m_TypeLookup[$"{type.FullTypeName}, {type.ParentModule.AssemblyName}"];
+        }
+
+        public bool HasType(ITypeDefinition type)
+        {
+            return m_TypeLookup.ContainsKey($"{type.FullTypeName}, {type.ParentModule.AssemblyName}");
+        }
+
         List<IField> GetSerializedFields(IType mainType) {
             return mainType.GetFields().ToList();
-        }
-        ITypeDefinition TypeByFullname(string fullName)
-        {
-            var name = new FullTypeName(fullName);
-            var type = decompiler.TypeSystem.MainModule.Compilation.FindType(name).GetDefinition();
-            return type;
         }
         bool IsSerialized(ITypeDefinition type)
         {
@@ -115,72 +48,133 @@ namespace UnityStubDecompiler
             }
             return false;
         }
-        void CollectTypes(out Dictionary<ITypeDefinition, List<IField>> result, out HashSet<IModule> dependentModules)
+        bool IsUnityModule(IModule module)
+        {
+            if (module.AssemblyName.StartsWith("UnityEngine")) return true;
+            return false;
+        }
+        IEnumerable<ITypeDefinition> CollectTypes(IType type)
+        {
+            if (type is UnknownType unknownType)
+            {
+                yield break;
+            }
+            if (type is AbstractTypeParameter abstractTypeParameter)
+            {
+                yield break;
+            }
+            if (type is ArrayType arrayType)
+            {
+                foreach(var elementType in CollectTypes(arrayType.ElementType))
+                {
+                    yield return elementType;
+                }
+                yield break;
+            }
+            if (type.GetDefinition() == null) throw new Exception();
+            yield return type.GetDefinition();
+        }
+        CSharpDecompiler CreateDecompiler(string assemblyName)
+        {
+            var decompiler = new CSharpDecompiler($"{ManagedDir}/{assemblyName}.dll",
+                new DecompilerSettings());
+            decompiler.AstTransforms.Insert(0, new TypeFixer(this));
+            decompiler.AstTransforms.Insert(0, new AttributeRemover());
+            return decompiler;
+        }
+        void CollectTypes(out List<DecompileType> types, out List<DecompileModule> modules)
         {
             //TODO
-            var lookup = new Dictionary<ITypeDefinition, List<IField>>();
-            foreach (var type in decompiler.TypeSystem.GetTopLevelTypeDefinitions())
+            var result = new List<DecompileType>();
+            var toCheck = new Stack<ITypeDefinition>(decompiler.TypeSystem.GetTopLevelTypeDefinitions());
+            var seen = new HashSet<ITypeDefinition>();
+            var moduleLookup = new Dictionary<IModule, DecompileModule>();
+            while (toCheck.Count > 0)
             {
+                var type = toCheck.Pop();
+                if (seen.Contains(type)) continue;
+                seen.Add(type);
                 if (type.Name == "<Module>") continue;
-                if (IsSerialized(type) && type.ParentModule.Name == "Assembly-CSharp")
+                if (!IsSerialized(type)) continue;
+                if (IsUnityModule(type.ParentModule)) continue;
+                foreach (var dep in CollectTypes(type))
                 {
-                    lookup[type] = GetSerializedFields(type);
+                    //toCheck.Push(dep);
                 }
+                if (!moduleLookup.ContainsKey(type.ParentModule))
+                {
+                    var decompiler = CreateDecompiler(type.ParentModule.AssemblyName);
+                    moduleLookup[type.ParentModule] = new DecompileModule(type.ParentModule, decompiler);
+                }
+                var module = moduleLookup[type.ParentModule];
+                var fields = GetSerializedFields(type);
+                foreach (var field in fields) 
+                {
+                    foreach (var fieldType in CollectTypes(field.Type))
+                    {
+
+                        if (IsUnityModule(fieldType.ParentModule))
+                        {
+                            continue;
+                        }
+                        if (!seen.Contains(fieldType))
+                        {
+                            toCheck.Push(fieldType);
+                        }
+                    }
+                }
+                result.Add(new DecompileType(type, module, fields));
             }
-            HashSet<IModule> modules = new HashSet<IModule>();
-            dependentModules = modules;
-            result = lookup;
+
+            types = result;
+            modules = moduleLookup.Values.ToList();
         }
-        public static void DecompileProject(string managedDir)
+        public static void DecompileProject(string managedDir, Options options)
         {
-            var blueprintDecompiler = new StubDecompiler();
-            blueprintDecompiler.Decompile(managedDir);
+            var blueprintDecompiler = new StubDecompiler(options, managedDir);
+            blueprintDecompiler.Decompile();
         }
-        void Decompile(string managedDir)
+        void Decompile()
         {
-            projectDir = $"Scripts";
-            var settings = new DecompilerSettings();
-            decompiler = new CSharpDecompiler($"{managedDir}/Assembly-CSharp.dll",
-                new DecompilerSettings());
-            CollectTypes(out Dictionary<ITypeDefinition, List<IField>> types, out HashSet<IModule> modules);
-            decompiler.AstTransforms.Insert(0, new TypeFixer(decompiler, types));
-            decompiler.AstTransforms.Insert(0, new AttributeRemover());
-            var foo = new Dictionary<string, ITypeDefinition>();
-            var topTypes = types.Keys.Where(t => t.DeclaringType == null);
+            projectDir = options.SolutionDirectoryName;
+            decompiler = CreateDecompiler("Assembly-CSharp");
+            CollectTypes(out List<DecompileType> types, out List<DecompileModule> modules);
+            m_TypeLookup = new Dictionary<string, DecompileType>();
+            foreach(var type in types)
+            {
+                if (m_TypeLookup.ContainsKey(type.Id))
+                {
+                    var dup = m_TypeLookup[type.Id];
+                    var test = type.TypeDefinition == dup.TypeDefinition;
+                }
+                m_TypeLookup.Add(type.Id, type);
+            }
+            var filenameTypeLookup = new Dictionary<string, DecompileType>();
+            var topTypes = types.Where(t => t.TypeDefinition.DeclaringType == null);
             foreach (var type in topTypes)
             {
-                if (foo.ContainsKey(ToFileName(type)))
+                var path = $"{projectDir}/{type.GetFilePath()}";
+                if (filenameTypeLookup.ContainsKey(path))
                 {
-                    var other = foo[ToFileName(type)];
+                    var other = filenameTypeLookup[path];
                     throw new Exception($"Duplicate file names");
                 } else
                 {
-                    foo.Add(ToFileName(type), type);
+                    filenameTypeLookup.Add(path, type);
                 }
                 DecompileType(type);
             }
-        }
-        public void DecompileType(ITypeDefinition type)
-        {
-            var path = ToFileName(type);
-            FileUtil.EnsureDirectory($"{projectDir}/{Path.GetDirectoryName(path)}");
-            var text = decompiler.DecompileTypeAsString(type.FullTypeName);
-            File.WriteAllText($"{projectDir}/{path}", text);
-        }
-        string ToFileName(ITypeDefinition type)
-        {
-            var typeParams = "";
-            var namespacePart = "";
-            if (!string.IsNullOrEmpty(type.Namespace))
+            if (options.GenerateSolution)
             {
-                namespacePart = type.Namespace + "\\";
+                SolutionGenerator.Generate(options, modules);
             }
-            if(type.TypeParameterCount > 0)
-            {
-                typeParams = $"_{type.TypeParameterCount}";
-            }
-            var relPath = $"{namespacePart}{type.Name}{typeParams}.cs";
-            return relPath;
-        }        
+        }
+        public void DecompileType(DecompileType type)
+        {
+            var path = $"{projectDir}/{type.GetFilePath()}";
+            FileUtil.EnsureDirectory(Path.GetDirectoryName(path));
+            var text = type.Module.Decompiler.DecompileTypeAsString(type.TypeDefinition.FullTypeName);
+            File.WriteAllText(path, text);
+        }
     }
 }
