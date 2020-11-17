@@ -281,7 +281,9 @@ namespace UnityStubDecompiler
         void CollectTypes(out List<DecompileType> types, out List<DecompileModule> modules)
         {
             var result = new List<DecompileType>();
+            //Skip compiler generated types
             var initialTypes = decompiler.TypeSystem.GetTopLevelTypeDefinitions()
+                .Where(t => !t.Name.StartsWith("$"))
                 .Where(t => IsSerialized(t));
             var toCheck = new Stack<ITypeDefinition>(initialTypes);
             var seen = new HashSet<ITypeDefinition>();
@@ -371,11 +373,6 @@ namespace UnityStubDecompiler
             m_TypeLookup = new Dictionary<string, DecompileType>();
             foreach(var type in types)
             {
-                if (m_TypeLookup.ContainsKey(type.Id))
-                {
-                    var dup = m_TypeLookup[type.Id];
-                    var test = type.TypeDefinition == dup.TypeDefinition;
-                }
                 m_TypeLookup.Add(type.Id, type);
             }
             var filenameTypeLookup = new Dictionary<string, DecompileType>();
