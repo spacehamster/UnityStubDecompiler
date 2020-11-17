@@ -394,6 +394,7 @@ namespace UnityStubDecompiler
                 File.WriteAllText(path, text);
             } catch(Exception ex)
             {
+                Console.WriteLine($"Error decompiling type {type.TypeDefinition.FullName}. {ex.GetType().Name}");
                 //Temp hack. todo: fix ILSpy decompile error
                 using var sw = new StreamWriter(path);
                 sw.WriteLine("/* Decompile Error");
