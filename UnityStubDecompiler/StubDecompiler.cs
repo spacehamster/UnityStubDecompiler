@@ -1,7 +1,5 @@
 ﻿using ICSharpCode.Decompiler;
 using ICSharpCode.Decompiler.CSharp;
-using ICSharpCode.Decompiler.CSharp.Syntax;
-using ICSharpCode.Decompiler.CSharp.Transforms;
 using ICSharpCode.Decompiler.Metadata;
 using ICSharpCode.Decompiler.TypeSystem;
 using ICSharpCode.Decompiler.TypeSystem.Implementation;
@@ -119,6 +117,7 @@ namespace UnityStubDecompiler
             if (module.AssemblyName == "System") return true;
             if (module.AssemblyName == "System.Core") return true;
             if (module.AssemblyName == "System.Xml") return true;
+            if (module.AssemblyName == "System.Xml.Linq") return true;
             return false;
         }
         IEnumerable<ITypeDefinition> CollectTypes(IType type, bool includeSelf = true, bool includeBaseType = false)

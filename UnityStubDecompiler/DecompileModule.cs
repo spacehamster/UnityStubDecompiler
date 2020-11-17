@@ -24,8 +24,8 @@ namespace UnityStubDecompiler
             }
             if (module.AssemblyName.StartsWith("UnityEngine"))
             {
-                var coreModule = module.Compilation.Modules.First(m => m.AssemblyName == "UnityEngine.CoreModule");
-                m_References.Add(coreModule);
+                var coreModule = module.Compilation.Modules.FirstOrDefault(m => m.AssemblyName == "UnityEngine.CoreModule");
+                if(coreModule != null) m_References.Add(coreModule);
             }
             m_References.Add(module);
         }
