@@ -87,10 +87,18 @@ namespace UnityStubDecompiler
             }
             return false;
         }
-        bool IsSerialized(ITypeDefinition type)
+        bool IsMonobehaviourOrScriptableObject(ITypeDefinition type)
         {
             var baseTypes = type.GetNonInterfaceBaseTypes().Where(t => t != type).ToList();
-            if(baseTypes.Any(t => (t.Name == "MonoBehaviour" || t.Name == "ScriptableObject" ) && t.Namespace == "UnityEngine"))
+            if (baseTypes.Any(t => (t.Name == "MonoBehaviour" || t.Name == "ScriptableObject") && t.Namespace == "UnityEngine"))
+            {
+                return true;
+            }
+            return false;
+        }
+        bool IsSerialized(ITypeDefinition type)
+        {
+            if(IsMonobehaviourOrScriptableObject(type))
             {
                 return true;
             }
@@ -283,8 +291,7 @@ namespace UnityStubDecompiler
             var result = new List<DecompileType>();
             //Skip compiler generated types
             var initialTypes = decompiler.TypeSystem.GetTopLevelTypeDefinitions()
-                .Where(t => !t.Name.StartsWith("$"))
-                .Where(t => IsSerialized(t));
+                .Where(t => IsMonobehaviourOrScriptableObject(t));
             var toCheck = new Stack<ITypeDefinition>(initialTypes);
             var seen = new HashSet<ITypeDefinition>();
             var moduleLookup = new Dictionary<IModule, DecompileModule>();
