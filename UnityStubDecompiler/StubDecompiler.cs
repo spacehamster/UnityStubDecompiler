@@ -36,6 +36,31 @@ namespace UnityStubDecompiler
             return m_TypeLookup.ContainsKey($"{type.FullTypeName}, {type.ParentModule.AssemblyName}");
         }
 
+        ITypeDefinition GetConcreteFieldType(IType type)
+        {
+            if (type is UnknownType unknownType)
+            {
+                return null;
+            }
+            if (type is AbstractTypeParameter abstractTypeParameter)
+            {
+                return null;
+            }
+            if (type is ArrayType arrayType)
+            {
+                return GetConcreteFieldType(arrayType.ElementType);
+            }
+            if (type.TypeArguments.Count > 0 && type.FullName == "System.Collections.Generic.List")
+            {
+                return GetConcreteFieldType(type.TypeArguments[0]);
+            }
+            if (type.TypeArguments.Count > 0)
+            {
+                return null;
+            }
+            return type.GetDefinition();
+        }
+
         List<IField> GetSerializedFields(ITypeDefinition mainType) {
             var result = new List<IField>();
             if (!IsSerialized(mainType))
@@ -47,33 +72,9 @@ namespace UnityStubDecompiler
                 if(!(field.Accessibility == Accessibility.Public || field.GetAttributes().Any(a => a.AttributeType.FullName == "UnityEngine.SerializeField"))){
                     continue;
                 }
-                var fieldType = field.Type;
-                if (fieldType is ArrayType arrayType)
-                {
-                    fieldType = arrayType.ElementType;
-                }
-                if (fieldType is UnknownType unknownType)
-                {
-                    continue;
-                }
-                if (fieldType is AbstractTypeParameter abstractTypeParameter)
-                {
-                    continue;
-                }
-                if (fieldType.TypeArguments.Count > 0 && fieldType.FullName == "System.Collections.Generic.List")
-                {
-                    fieldType = fieldType.TypeArguments[0];
-                    if (fieldType is AbstractTypeParameter)
-                    {
-                        continue;
-                    }
-                }
-                if (fieldType.TypeArguments.Count > 0)
-                {
-                    continue;
-                }
-                var typeDefintion = fieldType.GetDefinition();
-                if (!IsSerialized(typeDefintion)) continue;
+                var fieldType = GetConcreteFieldType(field.Type);
+                if (fieldType == null) continue;
+                if (!IsSerialized(fieldType)) continue;
                 result.Add(field);
             }
             return result;
