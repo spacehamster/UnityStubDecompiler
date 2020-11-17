@@ -211,6 +211,36 @@ namespace UnityStubDecompiler
             }
             return result;
         }
+        List<IProperty> GetAbstractPropertyImplementations(ITypeDefinition type)
+        {
+            var abstractProperties = new List<IProperty>();
+            var baseTypes = type.GetNonInterfaceBaseTypes().ToArray();
+            foreach (var baseType in baseTypes)
+            {
+                var def = baseType.GetDefinition();
+                if (!IsUnityModule(def.ParentModule)) continue;
+                foreach (var property in def.Properties)
+                {
+                    if (property.IsAbstract)
+                    {
+                        abstractProperties.Add(property);
+                    }
+                }
+            }
+            var result = new List<IProperty>();
+            if (abstractProperties.Count == 0) return result;
+            foreach (var property in type.Properties)
+            {
+                foreach (var abstractProperty in abstractProperties)
+                {
+                    if (property.ComparePropertySignature(abstractProperty))
+                    {
+                        result.Add(property);
+                    }
+                }
+            }
+            return result;
+        }
         IEnumerable<ITypeDefinition> CollectTypes(IMethod method)
         {
             foreach (var parameter in method.Parameters)
@@ -262,15 +292,12 @@ namespace UnityStubDecompiler
                 {
                     module.AddReference(parent.ParentModule);
                 }
+
                 var methods = GetAbstractMethodImplementations(type);
                 foreach(var method in methods)
                 {
                     foreach(var methodType in CollectTypes(method))
                     {
-                        if(method.Name == "Raycast")
-                        {
-
-                        }
                         if (methodType.ParentModule != type.ParentModule)
                         {
                             module.AddReference(methodType.ParentModule);
@@ -285,6 +312,9 @@ namespace UnityStubDecompiler
                         }
                     }
                 }
+
+                var properties = GetAbstractPropertyImplementations(type);
+                //TODO: Collect property types
 
                 var fields = GetSerializedFields(type);
                 foreach (var field in fields) 
@@ -305,7 +335,7 @@ namespace UnityStubDecompiler
                         }
                     }
                 }
-                result.Add(new DecompileType(type, module, fields, methods));
+                result.Add(new DecompileType(type, module, fields, methods, properties));
             }
 
             types = result;

@@ -68,9 +68,39 @@ namespace UnityStubDecompiler
                         }
                     }
                 }
-                else if (member is PropertyDeclaration)
+                else if (member is PropertyDeclaration pd)
                 {
-                    member.Remove();
+                    var properties = type.Properties;
+                    var symbol = (IProperty)pd.GetSymbol();
+                    if (!properties.Any(p => p.ComparePropertySignature(symbol)))
+                    {
+                        member.Remove();
+                    }
+                    else
+                    {
+                        if (symbol.CanGet)
+                        {
+                            foreach (var child in pd.Getter.Body.Children)
+                            {
+                                child.Remove();
+                            }
+                            var simpleType = new SimpleType("System.NotImplementedException");
+                            var objCreateExpression = new ObjectCreateExpression(simpleType);
+                            var throwStatement = new ThrowStatement(objCreateExpression);
+                            pd.Getter.Body.Add(throwStatement);
+                        }
+                        if (symbol.CanSet)
+                        {
+                            foreach (var child in pd.Setter.Body.Children)
+                            {
+                                child.Remove();
+                            }
+                            var simpleType = new SimpleType("System.NotImplementedException");
+                            var objCreateExpression = new ObjectCreateExpression(simpleType);
+                            var throwStatement = new ThrowStatement(objCreateExpression);
+                            pd.Setter.Body.Add(throwStatement);
+                        }
+                    }
                 }
                 else if (member is OperatorDeclaration)
                 {
