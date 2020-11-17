@@ -118,6 +118,7 @@ namespace UnityStubDecompiler
             if (module.AssemblyName == "mscorlib") return true;
             if (module.AssemblyName == "System") return true;
             if (module.AssemblyName == "System.Core") return true;
+            if (module.AssemblyName == "System.Xml") return true;
             return false;
         }
         IEnumerable<ITypeDefinition> CollectTypes(IType type, bool includeSelf = true, bool includeBaseType = false)
@@ -256,6 +257,23 @@ namespace UnityStubDecompiler
                 yield return type;
             }
         }
+        IEnumerable<ITypeDefinition> CollectTypes(IField field)
+        {
+            foreach (var type in CollectTypes(field.Type))
+            {
+                yield return type;
+            }
+            foreach (var attribute in field.GetAttributes())
+            {
+                if (attribute.AttributeType.FullName == "UnityEngine.SerializeField")
+                {
+                    foreach (var type in CollectTypes(attribute.AttributeType))
+                    {
+                        yield return type;
+                    }
+                }
+            }
+        }
         void CollectTypes(out List<DecompileType> types, out List<DecompileModule> modules)
         {
             var result = new List<DecompileType>();
@@ -313,7 +331,7 @@ namespace UnityStubDecompiler
                 var fields = GetSerializedFields(type);
                 foreach (var field in fields) 
                 {
-                    foreach (var fieldType in CollectTypes(field.Type))
+                    foreach (var fieldType in CollectTypes(field))
                     {
                         if(fieldType.ParentModule != type.ParentModule)
                         {
