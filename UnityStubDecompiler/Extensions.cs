@@ -8,7 +8,7 @@ namespace UnityStubDecompiler
     {
         public static IType GetDirectBaseType(this IType type)
         {
-            return type.DirectBaseTypes.Single(t => t.Kind != TypeKind.Interface);
+            return type.DirectBaseTypes.Single(t => t.Kind != TypeKind.Interface && t.Kind != TypeKind.Unknown);
         }
 
         public static bool CompareType(this IType src, IType target)

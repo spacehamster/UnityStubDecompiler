@@ -123,6 +123,7 @@ namespace UnityStubDecompiler
         }
         IEnumerable<ITypeDefinition> CollectTypes(IType type, bool includeSelf = true, bool includeBaseType = false)
         {
+            //TODO: Determine why there are unknown types
             if (type is UnknownType unknownType)
             {
                 yield break;
@@ -189,6 +190,8 @@ namespace UnityStubDecompiler
             var baseTypes = type.GetNonInterfaceBaseTypes().ToArray();
             foreach (var baseType in baseTypes)
             {
+                //TODO: determine why there are unknown types
+                if (baseType is UnknownType) continue;
                 var def = baseType.GetDefinition();
                 if (!IsUnityModule(def.ParentModule)) continue;
                 foreach(var method in def.Methods)
@@ -219,6 +222,8 @@ namespace UnityStubDecompiler
             var baseTypes = type.GetNonInterfaceBaseTypes().ToArray();
             foreach (var baseType in baseTypes)
             {
+                //TODO: determine why there are unknown types
+                if (baseType is UnknownType) continue;
                 var def = baseType.GetDefinition();
                 if (!IsUnityModule(def.ParentModule)) continue;
                 foreach (var property in def.Properties)
