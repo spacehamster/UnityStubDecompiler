@@ -36,8 +36,12 @@ namespace UnityStubDecompiler
             return m_TypeLookup.ContainsKey($"{type.FullTypeName}, {type.ParentModule.AssemblyName}");
         }
 
-        List<IField> GetSerializedFields(IType mainType) {
+        List<IField> GetSerializedFields(ITypeDefinition mainType) {
             var result = new List<IField>();
+            if (!IsSerialized(mainType))
+            {
+                return result;
+            }
             foreach(var field in mainType.GetFields())
             {
                 if(!(field.Accessibility == Accessibility.Public || field.GetAttributes().Any(a => a.AttributeType.FullName == "UnityEngine.SerializeField"))){
@@ -59,6 +63,10 @@ namespace UnityStubDecompiler
                 if (fieldType.TypeArguments.Count > 0 && fieldType.FullName == "System.Collections.Generic.List")
                 {
                     fieldType = fieldType.TypeArguments[0];
+                    if (fieldType is AbstractTypeParameter)
+                    {
+                        continue;
+                    }
                 }
                 if (fieldType.TypeArguments.Count > 0)
                 {
@@ -111,7 +119,7 @@ namespace UnityStubDecompiler
             if (module.AssemblyName == "System.Core") return true;
             return false;
         }
-        IEnumerable<ITypeDefinition> CollectTypes(IType type)
+        IEnumerable<ITypeDefinition> CollectTypes(IType type, bool includeSelf = true, bool includeBaseType = false)
         {
             if (type is UnknownType unknownType)
             {
@@ -137,12 +145,33 @@ namespace UnityStubDecompiler
                 }
                 yield break;
             }
-            foreach(var typeArgument in type.TypeArguments.SelectMany(CollectTypes))
+            foreach(var typeArgument in type.TypeArguments.SelectMany(arg => CollectTypes(arg)))
             {
                 yield return typeArgument;
             }
-            if (type.GetDefinition() == null) throw new Exception();
-            yield return type.GetDefinition();
+            if(type.DeclaringType != null)
+            {
+                foreach(var declaringType in CollectTypes(type.DeclaringType))
+                {
+                    yield return declaringType;
+                }
+            }
+            if (includeSelf)
+            {
+                if (type.GetDefinition() == null) throw new Exception();
+                yield return type.GetDefinition();
+            }
+            if (includeBaseType)
+            {
+                var baseType = type.GetDirectBaseType();
+                if (baseType != null)
+                {
+                    foreach (var baseTypeRef in CollectTypes(baseType))
+                    {
+                        yield return baseTypeRef;
+                    }
+                }
+            }
         }
         CSharpDecompiler CreateDecompiler(string assemblyName)
         {
@@ -184,9 +213,10 @@ namespace UnityStubDecompiler
         }
         void CollectTypes(out List<DecompileType> types, out List<DecompileModule> modules)
         {
-            //TODO
             var result = new List<DecompileType>();
-            var toCheck = new Stack<ITypeDefinition>(decompiler.TypeSystem.GetTopLevelTypeDefinitions());
+            var initialTypes = decompiler.TypeSystem.GetTopLevelTypeDefinitions()
+                .Where(t => IsSerialized(t));
+            var toCheck = new Stack<ITypeDefinition>(initialTypes);
             var seen = new HashSet<ITypeDefinition>();
             var moduleLookup = new Dictionary<IModule, DecompileModule>();
             while (toCheck.Count > 0)
@@ -195,7 +225,6 @@ namespace UnityStubDecompiler
                 if (seen.Contains(type)) continue;
                 seen.Add(type);
                 if (type.Name == "<Module>") continue;
-                if (!IsSerialized(type)) continue;
                 if (IsUnityModuleOrCoreLibrary(type.ParentModule)) continue;
                 if (!moduleLookup.ContainsKey(type.ParentModule))
                 {
@@ -203,6 +232,15 @@ namespace UnityStubDecompiler
                     moduleLookup[type.ParentModule] = new DecompileModule(type.ParentModule, decompiler);
                 }
                 var module = moduleLookup[type.ParentModule];
+                var typeReferences = CollectTypes(type, includeSelf: false, includeBaseType: true).ToList();
+                foreach (var typeReference in typeReferences) 
+                {
+                    toCheck.Push(typeReference);
+                    if (typeReference.ParentModule != module.Module)
+                    {
+                        module.AddReference(typeReference.ParentModule);
+                    }
+                }
                 var parent = type.GetDirectBaseType().GetDefinition();
                 toCheck.Push(parent);
                 if(parent.ParentModule != module.Module)

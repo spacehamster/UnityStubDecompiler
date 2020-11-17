@@ -2,7 +2,6 @@
 using ICSharpCode.Decompiler.CSharp.Syntax;
 using ICSharpCode.Decompiler.CSharp.Transforms;
 using ICSharpCode.Decompiler.TypeSystem;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace UnityStubDecompiler
@@ -92,9 +91,9 @@ namespace UnityStubDecompiler
                 {
                     member.Remove();
                 }
-                else if(member is TypeDeclaration)
+                else if (member is DestructorDeclaration)
                 {
-
+                    member.Remove();
                 }
                 else if (member is FieldDeclaration fd)
                 {
@@ -103,6 +102,14 @@ namespace UnityStubDecompiler
                     {
                         member.Remove();
                     }
+                }
+                else if (member is TypeDeclaration)
+                {
+
+                }
+                else if (member is EnumMemberDeclaration)
+                {
+
                 }
                 else
                 {
