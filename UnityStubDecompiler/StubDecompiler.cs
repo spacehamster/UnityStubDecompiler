@@ -286,13 +286,6 @@ namespace UnityStubDecompiler
                     }
                 }
 
-                var parent = type.GetDirectBaseType().GetDefinition();
-                toCheck.Push(parent);
-                if(parent.ParentModule != module.Module)
-                {
-                    module.AddReference(parent.ParentModule);
-                }
-
                 var methods = GetAbstractMethodImplementations(type);
                 foreach(var method in methods)
                 {
@@ -401,7 +394,7 @@ namespace UnityStubDecompiler
                 File.WriteAllText(path, text);
             } catch(Exception ex)
             {
-                //Temp hack. todo: fix ilspy decompile error
+                //Temp hack. todo: fix ILSpy decompile error
                 using var sw = new StreamWriter(path);
                 sw.WriteLine("/* Decompile Error");
                 sw.WriteLine(ex.ToString());
