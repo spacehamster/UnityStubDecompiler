@@ -48,7 +48,8 @@ namespace UnityStubDecompiler
                 if (member is MethodDeclaration md)
                 {
                     var methods = type.Methods;
-                    if (!methods.Any(f => f.Name == md.GetSymbol().Name))
+                    var symbol = (IMethod)md.GetSymbol();
+                    if (!methods.Any(m => m.CompareMethodSignature(symbol)))
                     {
                         member.Remove();
                     }

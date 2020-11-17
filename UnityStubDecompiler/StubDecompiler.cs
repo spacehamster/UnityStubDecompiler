@@ -211,6 +211,20 @@ namespace UnityStubDecompiler
             }
             return result;
         }
+        IEnumerable<ITypeDefinition> CollectTypes(IMethod method)
+        {
+            foreach (var parameter in method.Parameters)
+            {
+                foreach(var type in CollectTypes(parameter.Type))
+                {
+                    yield return type;
+                }
+            }
+            foreach (var type in CollectTypes(method.ReturnType))
+            {
+                yield return type;
+            }
+        }
         void CollectTypes(out List<DecompileType> types, out List<DecompileModule> modules)
         {
             var result = new List<DecompileType>();
@@ -241,6 +255,7 @@ namespace UnityStubDecompiler
                         module.AddReference(typeReference.ParentModule);
                     }
                 }
+
                 var parent = type.GetDirectBaseType().GetDefinition();
                 toCheck.Push(parent);
                 if(parent.ParentModule != module.Module)
@@ -248,6 +263,29 @@ namespace UnityStubDecompiler
                     module.AddReference(parent.ParentModule);
                 }
                 var methods = GetAbstractMethodImplementations(type);
+                foreach(var method in methods)
+                {
+                    foreach(var methodType in CollectTypes(method))
+                    {
+                        if(method.Name == "Raycast")
+                        {
+
+                        }
+                        if (methodType.ParentModule != type.ParentModule)
+                        {
+                            module.AddReference(methodType.ParentModule);
+                        }
+                        if (IsUnityModuleOrCoreLibrary(methodType.ParentModule))
+                        {
+                            continue;
+                        }
+                        if (!seen.Contains(methodType))
+                        {
+                            toCheck.Push(methodType);
+                        }
+                    }
+                }
+
                 var fields = GetSerializedFields(type);
                 foreach (var field in fields) 
                 {
@@ -333,7 +371,15 @@ namespace UnityStubDecompiler
                 File.WriteAllText(path, text);
             } catch(Exception ex)
             {
-                File.WriteAllText(path, $"/*\n{ex}\n*/");
+                //Temp hack. todo: fix ilspy decompile error
+                using var sw = new StreamWriter(path);
+                sw.WriteLine("/* Decompile Error");
+                sw.WriteLine(ex.ToString());
+                sw.WriteLine("*/");
+                sw.WriteLine($"namespace {type.TypeDefinition.Namespace} {{");
+                sw.WriteLine($"    public class {type.TypeDefinition.Name} {{");
+                sw.WriteLine("    }");
+                sw.WriteLine("}");
             }
             
         }

@@ -13,8 +13,9 @@ namespace UnityStubDecompiler
 
         public static bool CompareMethodSignature(this IMethod src, IMethod target)
         {
+            if (src.IsStatic != target.IsStatic) return false;
             if (src.Name != target.Name) return false;
-            if (src.ReturnType != target.ReturnType) return false;
+            if (src.ReturnType.FullName != target.ReturnType.FullName) return false;
             if (src.Parameters.Count != target.Parameters.Count) return false;
             for(int i = 0; i < src.Parameters.Count; i++)
             {
